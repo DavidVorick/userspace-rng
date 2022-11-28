@@ -8,7 +8,7 @@ repository = "https://github.com/DavidVorick/userspace-rng"
 
 [dependencies]
 getrandom = { version = "0.2", features = ["js", "std"] }
-sha2 = "0.10.6"
+sha2 = "0.10"
 
 [dev-dependencies]
 criterion = "0.3"

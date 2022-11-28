@@ -1,10 +1,10 @@
 [package]
 name = "userspace-rng"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "provides secure randomness with entropy generated in userspace"
 license = "MIT"
-repository = "https://github.com/DavidVorick/userspace-random"
+repository = "https://github.com/DavidVorick/userspace-rng"
 
 [dependencies]
 getrandom = { version = "0.2", features = ["std"] }

@@ -11,13 +11,13 @@
 //! The initial entropy is still created using getrandom, ensuring that the user will be secure if
 //! their OS entropy is secure even if the CPU jitter is not meaningfully generating entropy.
 
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::{Mutex, Once};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use getrandom::getrandom;
 use sha2::{Digest, Sha256};
 
-/// Entropy gets added to the backup pool every time the random library is used. Once every 512 
+/// Entropy gets added to the backup pool every time the random library is used. Once every 512
 /// calls, the backup pool gets merged into the entropy pool to give the entropy pool an extra
 /// boost. As long as each call mixes at least 0.25 bits of entropy into the backup pool, any
 /// attacker that has compromised the entropy pool will lose all progress once the backup pool is
@@ -78,16 +78,16 @@ fn init() {
         let mut base = [0u8; 32];
         let mut backup = [0u8; 32];
         match getrandom(&mut base) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(error) => {
                 debug_assert!(false, "unable to get base randomness from OS: {}", error);
-            },
+            }
         }
         match getrandom(&mut backup) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(error) => {
                 debug_assert!(false, "unable to get backup randomness from OS: {}", error);
-            },
+            }
         }
 
         // perform 25 milliseconds of entropy gathering. ensure that at least 512 iterations occur.
@@ -99,7 +99,11 @@ fn init() {
             iters += 1;
 
             // mix in the current time
-            let time = SystemTime::now().duration_since(UNIX_EPOCH).expect(CLOCK_ERR).as_nanos().to_le_bytes();
+            let time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect(CLOCK_ERR)
+                .as_nanos()
+                .to_le_bytes();
             for i in 0..16 {
                 base[i] ^= time[i];
             }
@@ -154,7 +158,11 @@ pub fn random256() -> [u8; 32] {
     // sufficient to harden our entropy pool. If the caller is not an attacker, it does provide
     // material entropy and will improve the quality of our entropy pools with negligiable
     // computational cost
-    let start: [u8; 16] = SystemTime::now().duration_since(UNIX_EPOCH).expect(CLOCK_ERR).as_nanos().to_le_bytes();
+    let start: [u8; 16] = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect(CLOCK_ERR)
+        .as_nanos()
+        .to_le_bytes();
 
     // xor the start time into the entropy pools. We use xor to ensure that any entropy which
     // already exists in the pools is preserved.
@@ -172,8 +180,8 @@ pub fn random256() -> [u8; 32] {
     // chance of perfectly cancelling out the usage counter which would allow multiple threads to
     // produce the exact same entropy when called.
     for i in 16..31 {
-        entropy_pool[i] ^= usage_bytes[i-16];
-        backup_pool[i] ^= usage_bytes[i-16];
+        entropy_pool[i] ^= usage_bytes[i - 16];
+        backup_pool[i] ^= usage_bytes[i - 16];
     }
 
     // We now produce the output for the caller. The output is using the entropy that was produced
@@ -189,7 +197,11 @@ pub fn random256() -> [u8; 32] {
     //
     // Because of this variance, the current system time will contain a meaningful amount of
     // entropy. We will mix this entropy into the backup pool using xor.
-    let output_timing_entropy = SystemTime::now().duration_since(UNIX_EPOCH).expect(CLOCK_ERR).as_nanos().to_le_bytes();
+    let output_timing_entropy = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect(CLOCK_ERR)
+        .as_nanos()
+        .to_le_bytes();
     for i in 0..15 {
         backup_pool[i] ^= output_timing_entropy[i];
     }
@@ -202,7 +214,11 @@ pub fn random256() -> [u8; 32] {
     // the entropy that gets added to the the entropy pool. The act of hashing the backup pool has
     // added new entropy to the system time which means we can use the current system time again to
     // create independent entropy for the entropy pool.
-    let backup_timing_entropy = SystemTime::now().duration_since(UNIX_EPOCH).expect(CLOCK_ERR).as_nanos().to_le_bytes();
+    let backup_timing_entropy = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect(CLOCK_ERR)
+        .as_nanos()
+        .to_le_bytes();
     for i in 0..15 {
         entropy_pool[i] ^= backup_timing_entropy[i];
     }
@@ -234,7 +250,7 @@ pub fn random256() -> [u8; 32] {
     // Return the output that was generated previously. The entropy pool has already been updated
     // since generating the output which protects the current output even if the entropy pool is
     // compromised in the future.
-    return output
+    return output;
 }
 
 #[cfg(test)]
@@ -252,9 +268,9 @@ mod tests {
         let mut frequencies = std::collections::HashMap::new();
         for _ in 0..tries {
             let rand = random256();
-            for i in 0..rand.len()-1 {
+            for i in 0..rand.len() - 1 {
                 match frequencies.get(&rand[i]) {
-                    Some(num) => frequencies.insert(rand[i], num+1),
+                    Some(num) => frequencies.insert(rand[i], num + 1),
                     None => frequencies.insert(rand[i], 1),
                 };
             }
@@ -264,13 +280,13 @@ mod tests {
         for i in 0..255 {
             match frequencies.get(&i) {
                 Some(num) => {
-                    if *num < tries*32/255*88/100 {
+                    if *num < tries * 32 / 255 * 88 / 100 {
                         panic!("value {} appeared fewer times than expected: {}", i, num);
                     }
-                    if *num > tries*32/255*112/100 {
+                    if *num > tries * 32 / 255 * 112 / 100 {
                         panic!("value {} appeared greater times than expected: {}", i, num);
                     }
-                },
+                }
                 None => panic!("value {} not found in frequency map", i),
             };
         }

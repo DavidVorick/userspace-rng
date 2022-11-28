@@ -100,7 +100,7 @@ fn init() {
 
             // mix in the current time
             let time = SystemTime::now().duration_since(UNIX_EPOCH).expect(CLOCK_ERR).as_nanos().to_le_bytes();
-            for i in 0..time.len() {
+            for i in 0..16 {
                 base[i] ^= time[i];
             }
             base = hash(&base);
@@ -215,7 +215,7 @@ pub fn random256() -> [u8; 32] {
 
     // Add all of our new results back into the entropy pool.
     let mut es_lock = ENTROPY_STATE.lock().unwrap();
-    for i in 0..new_entropy.len() {
+    for i in 0..32 {
         es_lock.entropy_pool[i] ^= new_entropy[i];
         es_lock.backup_pool[i] ^= new_backup[i];
 

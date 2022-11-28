@@ -1,0 +1,18 @@
+[package]
+name = "userspace-rng"
+version = "0.1.0"
+edition = "2021"
+description = "provides secure randomness with entropy generated in userspace"
+license = "MIT"
+repository = "https://github.com/DavidVorick/userspace-random"
+
+[dependencies]
+getrandom = { version = "0.2", features = ["std"] }
+sha2 = "0.10.6"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "rng_speed"
+harness = false

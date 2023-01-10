@@ -7,6 +7,7 @@ license = "MIT"
 repository = "https://github.com/DavidVorick/userspace-rng"
 
 [dependencies]
+anyhow = "1.0"
 getrandom = { version = "0.2", features = ["js", "std"] }
 sha2 = "0.10"
 

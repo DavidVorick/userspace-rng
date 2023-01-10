@@ -14,6 +14,7 @@
 use std::sync::{Mutex, Once};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{bail, Error};
 use getrandom::getrandom;
 use sha2::{Digest, Sha256};
 
@@ -253,6 +254,36 @@ pub fn random256() -> [u8; 32] {
     return output;
 }
 
+/// range64 returns an unbiased secure random u64 within [start, end).
+pub fn range64(start: u64, end: u64) -> Result<u64, Error> {
+    // Check that the range is valid.
+    if start >= end {
+        bail!("start must be strictly smaller than end");
+    }
+    let range = (end - start) as u128;
+
+    // Establish the 'limit', above which the rng toss is considered invalid as it will bias the
+    // result. If we get an rng toss that is above the limit, we will have to redo the rng toss.
+    // The max range is u64::MAX but the rng space is u128::MAX, so the chances of getting a result
+    // above the limit are 1/2^64 per toss in the worst case. It is cryptographically unlikely that
+    // the user needs more than two tosses.
+    let result: u64;
+    let umax = u128::MAX;
+    let limit = umax - (umax % range);
+    loop {
+        let mut base = [0u8; 16];
+        let rng = random256();
+        base.copy_from_slice(&rng[..16]);
+        let rand = u128::from_le_bytes(base);
+        if rand > limit {
+            continue;
+        }
+        result = (rand % range) as u64;
+        break;
+    }
+    Ok(result + start)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,6 +316,56 @@ mod tests {
                     }
                     if *num > tries * 32 / 255 * 112 / 100 {
                         panic!("value {} appeared greater times than expected: {}", i, num);
+                    }
+                }
+                None => panic!("value {} not found in frequency map", i),
+            };
+        }
+    }
+
+    #[test]
+    fn check_range64() {
+        let tries = 10_000;
+        for _ in 0..tries {
+            let i = range64(0, 1).unwrap();
+            if i != 0 {
+                panic!("out of bounds range64 result");
+            }
+            let i = range64(1, 2).unwrap();
+            if i != 1 {
+                panic!("out of bounds range64 result: {}", i);
+            }
+
+            match range64(1,1) {
+                Ok(_) => panic!("range oob did not err"),
+                Err(_) => {},
+            }
+            match range64(1,0) {
+                Ok(_) => panic!("range oob did not err"),
+                Err(_) => {},
+            }
+        }
+
+        // Get a range of 256 and count the frequencies of each result, looking for statistical
+        // anomalies. This isn't a robust statistcal test, it is just designed to catch obvious
+        // errors such as off-by-one.
+        let tries = 200_000;
+        let mut frequencies = std::collections::HashMap::new();
+        for _ in 0..tries {
+            let rand = range64(1, 256).unwrap();
+            match frequencies.get(&rand) {
+                Some(num) => frequencies.insert(rand, num + 1),
+                None => frequencies.insert(rand, 1),
+            };
+        }
+        for i in 1..256 {
+            match frequencies.get(&i) {
+                Some(num) => {
+                    if *num < tries / 255 * 80 / 100 {
+                        panic!("value {} appeared fewer times than expected: {} :: {}", i, num, tries / 255 * 80 / 100);
+                    }
+                    if *num > tries / 255 * 125 / 100 {
+                        panic!("value {} appeared greater times than expected: {} :: {}", i, num, tries / 255 * 125 / 100);
                     }
                 }
                 None => panic!("value {} not found in frequency map", i),

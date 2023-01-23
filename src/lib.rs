@@ -510,23 +510,26 @@ mod tests {
                 Some(v) => counter.insert(t, v + 1),
             };
         }
-        let mut bytes = [0u8; 80_000];
-        csprng.fill_bytes(&mut bytes);
-        for i in 0..10_000 {
-            let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
-            match counter.get(&t) {
-                None => counter.insert(t, 1),
-                Some(v) => counter.insert(t, v + 1),
-            };
-        }
-        let mut bytes = [0u8; 80_000];
-        csprng.try_fill_bytes(&mut bytes).unwrap();
-        for i in 0..10_000 {
-            let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
-            match counter.get(&t) {
-                None => counter.insert(t, 1),
-                Some(v) => counter.insert(t, v + 1),
-            };
+
+        for _ in 0..100 {
+            let mut bytes = [0u8; 8008];
+            csprng.fill_bytes(&mut bytes);
+            for i in 0..1001 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
+            let mut bytes = [0u8; 8008];
+            csprng.try_fill_bytes(&mut bytes).unwrap();
+            for i in 0..1001 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
         }
 
         for (key, value) in counter {

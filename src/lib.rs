@@ -284,6 +284,46 @@ pub fn range64(start: u64, end: u64) -> Result<u64, Error> {
     Ok(result + start)
 }
 
+/// Implement a csprng for userspace-random so that it can be used for activities like generating
+/// keypairs.
+pub struct Csprng {
+    // No state is required, just use the public functions.
+}
+
+impl rand_core::CryptoRng for Csprng {}
+
+impl rand_core::RngCore for Csprng {
+    fn next_u32(&mut self) -> u32 {
+        u32::from_le_bytes(random256()[..4].try_into().unwrap())
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        u64::from_le_bytes(random256()[..8].try_into().unwrap())
+    }
+
+    fn fill_bytes(&mut self, dest: &mut[u8]) {
+        let dlen = dest.len();
+        let mut i = 0;
+        while i+32 < dlen {
+            let rand = random256();
+            dest[i..i+32].copy_from_slice(&rand);
+            i += 32;
+        }
+        if dlen % 32 == 0 {
+            return;
+        }
+
+        let rand = random256();
+        let need = dlen - i;
+        dest[i..dlen].copy_from_slice(&rand[..need]);
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut[u8]) -> Result<(), rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

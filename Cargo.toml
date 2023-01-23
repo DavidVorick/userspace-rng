@@ -14,6 +14,8 @@ sha2 = "0.10"
 
 [dev-dependencies]
 criterion = "0.3"
+ed25519-dalek = "1"
+rand_core = "0.5"
 
 [[bench]]
 name = "rng_speed"

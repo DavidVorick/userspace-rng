@@ -301,12 +301,12 @@ impl rand_core::RngCore for Csprng {
         u64::from_le_bytes(random256()[..8].try_into().unwrap())
     }
 
-    fn fill_bytes(&mut self, dest: &mut[u8]) {
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
         let dlen = dest.len();
         let mut i = 0;
-        while i+32 < dlen {
+        while i + 32 < dlen {
             let rand = random256();
-            dest[i..i+32].copy_from_slice(&rand);
+            dest[i..i + 32].copy_from_slice(&rand);
             i += 32;
         }
         if dlen % 32 == 0 {
@@ -318,7 +318,7 @@ impl rand_core::RngCore for Csprng {
         dest[i..dlen].copy_from_slice(&rand[..need]);
     }
 
-    fn try_fill_bytes(&mut self, dest: &mut[u8]) -> Result<(), rand_core::Error> {
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
         self.fill_bytes(dest);
         Ok(())
     }
@@ -327,6 +327,8 @@ impl rand_core::RngCore for Csprng {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::Signer;
+    use rand_core::RngCore;
 
     #[test]
     // Perform a statistical test to look for basic mistakes in random256. Note that this test
@@ -376,13 +378,13 @@ mod tests {
                 panic!("out of bounds range64 result: {}", i);
             }
 
-            match range64(1,1) {
+            match range64(1, 1) {
                 Ok(_) => panic!("range oob did not err"),
-                Err(_) => {},
+                Err(_) => {}
             }
-            match range64(1,0) {
+            match range64(1, 0) {
                 Ok(_) => panic!("range oob did not err"),
-                Err(_) => {},
+                Err(_) => {}
             }
         }
 
@@ -402,14 +404,78 @@ mod tests {
             match frequencies.get(&i) {
                 Some(num) => {
                     if *num < tries / 255 * 80 / 100 {
-                        panic!("value {} appeared fewer times than expected: {} :: {}", i, num, tries / 255 * 80 / 100);
+                        panic!(
+                            "value {} appeared fewer times than expected: {} :: {}",
+                            i,
+                            num,
+                            tries / 255 * 80 / 100
+                        );
                     }
                     if *num > tries / 255 * 125 / 100 {
-                        panic!("value {} appeared greater times than expected: {} :: {}", i, num, tries / 255 * 125 / 100);
+                        panic!(
+                            "value {} appeared greater times than expected: {} :: {}",
+                            i,
+                            num,
+                            tries / 255 * 125 / 100
+                        );
                     }
                 }
                 None => panic!("value {} not found in frequency map", i),
             };
+        }
+    }
+
+    #[test]
+    fn check_prng_impl() {
+        // Basic test: see that we can use our csprng to create an ed25519 key.
+        let mut csprng = Csprng {};
+        let keypair = ed25519_dalek::Keypair::generate(&mut csprng);
+        let msg = b"example message";
+        let sig = keypair.sign(msg);
+        match keypair.public.verify_strict(msg, &sig) {
+            Ok(()) => {}
+            Err(e) => panic!("signature didn't work using keys from Csprng: {}", e),
+        }
+
+        // Use all of the methods of the cspring.
+        let mut counter = std::collections::HashMap::new();
+        for _ in 0..10_000 {
+            let t = csprng.next_u32() as u64;
+            match counter.get(&t) {
+                None => counter.insert(t, 1),
+                Some(v) => counter.insert(t, v + 1),
+            };
+        }
+        for _ in 0..10_000 {
+            let t = csprng.next_u64();
+            match counter.get(&t) {
+                None => counter.insert(t, 1),
+                Some(v) => counter.insert(t, v + 1),
+            };
+        }
+        let mut bytes = [0u8; 80_000];
+        csprng.fill_bytes(&mut bytes);
+        for i in 0..10_000 {
+            let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+            match counter.get(&t) {
+                None => counter.insert(t, 1),
+                Some(v) => counter.insert(t, v + 1),
+            };
+        }
+        let mut bytes = [0u8; 80_000];
+        csprng.try_fill_bytes(&mut bytes).unwrap();
+        for i in 0..10_000 {
+            let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+            match counter.get(&t) {
+                None => counter.insert(t, 1),
+                Some(v) => counter.insert(t, v + 1),
+            };
+        }
+
+        for (key, value) in counter {
+            if value > 10 {
+                panic!("distribution does not appear to be even: {}:{}", key, value);
+            }
         }
     }
 }

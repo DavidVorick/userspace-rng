@@ -2,14 +2,27 @@
 
 userspace-random is a rust crate that is intended to provde secure entropy to
 the caller even if the operating system entropy is not secure.
+`userspace_rng::Csprng` implements `rand_core::CryptoRng` and
+`rand_core::RngCore`.
+
+Usage:
+
+```rs
+// Generate an ed25519 key.
+let mut rng = userspace_rng::Csprng{};
+let keypair = ed25519_dalek::Keypair::generate(&mut rng);
+
+// Generate 32 bytes of randomness.
+let rand_data = userspace_rng::random256();
+```
 
 Modern operating systems like Linux, Mac, and Windows will all provide reliable
 entropy, however more niche operating systems and environments often will
-provide broken RNGs to the user. This concern is especially acute in IoT and
+provide broken RNGs to the user. This concern is especially relevant to IoT and
 embedded hardware, where the engineers are deliberately taking as many
-shortcuts as they can to trim down the operating system and hardware
-requirements. The result may be an unintentionally compromised operating system
-RNG without any of the software realizing that the RNG is compromised.
+shortcuts as they can to trim down the size and overhead of the operating
+system and hardware. The result may be an unintentionally compromised operating
+system RNG which can put users at risk.
 
 This worry has precedent. When Android was newer, a broken RNG in Android put
 user funds at risk: https://bitcoin.org/en/alert/2013-08-11-android
@@ -17,12 +30,9 @@ user funds at risk: https://bitcoin.org/en/alert/2013-08-11-android
 To protect users against insecure hardware, we developed a library that
 generates reliable entropy in userspace. We have constructed the library to
 ensure that the randomness can only be compromised if both the operating system
-RNG is broken and also the assumptions made by our library are incorrect.
-
-Had the Android wallets used userspace-random to generate their entropy, user
-funds likely would have been safe despite the flaw in Android itself.
-
-## Construction
+RNG is broken and also the assumptions made by our library are incorrect. Had
+the Android wallets used userspace-random to generate their entropy, user funds
+likely would have been safe despite the flaw in Android itself.
 
 This library draws entropy from CPU jitter. Specifically, the number of
 nanoseconds required to complete a cryptographic hash function has a high

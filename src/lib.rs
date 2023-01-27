@@ -408,17 +408,9 @@ mod tests {
 
         // Review the number of appearances of each byte value and look for statistical anomalies.
         for i in 0..255 {
-            match frequencies.get(&i) {
-                Some(num) => {
-                    if *num < tries * 32 / 255 * 88 / 100 {
-                        panic!("value {} appeared fewer times than expected: {}", i, num);
-                    }
-                    if *num > tries * 32 / 255 * 112 / 100 {
-                        panic!("value {} appeared greater times than expected: {}", i, num);
-                    }
-                }
-                None => panic!("value {} not found in frequency map", i),
-            };
+            let num = frequencies.get(&i).unwrap();
+            assert!(num > &(tries * 32 * 80 / 255 / 100));
+            assert!(num < &(tries * 32 * 112 / 255 / 100));
         }
     }
 
@@ -427,22 +419,11 @@ mod tests {
         let tries = 10_000;
         for _ in 0..tries {
             let i = range64(0, 1).unwrap();
-            if i != 0 {
-                panic!("out of bounds range64 result");
-            }
+            assert!(i == 0);
             let i = range64(1, 2).unwrap();
-            if i != 1 {
-                panic!("out of bounds range64 result: {}", i);
-            }
-
-            match range64(1, 1) {
-                Ok(_) => panic!("range oob did not err"),
-                Err(_) => {}
-            }
-            match range64(1, 0) {
-                Ok(_) => panic!("range oob did not err"),
-                Err(_) => {}
-            }
+            assert!(i == 1);
+            range64(1, 1).unwrap_err();
+            range64(1, 0).unwrap_err();
         }
 
         // Get a range of 256 and count the frequencies of each result, looking for statistical
@@ -458,27 +439,23 @@ mod tests {
             };
         }
         for i in 1..256 {
-            match frequencies.get(&i) {
-                Some(num) => {
-                    if *num < tries / 255 * 80 / 100 {
-                        panic!(
-                            "value {} appeared fewer times than expected: {} :: {}",
-                            i,
-                            num,
-                            tries / 255 * 80 / 100
-                        );
-                    }
-                    if *num > tries / 255 * 125 / 100 {
-                        panic!(
-                            "value {} appeared greater times than expected: {} :: {}",
-                            i,
-                            num,
-                            tries / 255 * 125 / 100
-                        );
-                    }
-                }
-                None => panic!("value {} not found in frequency map", i),
-            };
+            let num = frequencies.get(&i).unwrap();
+            if *num < tries / 255 * 80 / 100 {
+                panic!(
+                    "value {} appeared fewer times than expected: {} :: {}",
+                    i,
+                    num,
+                    tries / 255 * 80 / 100
+                );
+            }
+            if *num > tries / 255 * 125 / 100 {
+                panic!(
+                    "value {} appeared greater times than expected: {} :: {}",
+                    i,
+                    num,
+                    tries / 255 * 125 / 100
+                );
+            }
         }
     }
 
@@ -489,10 +466,7 @@ mod tests {
         let keypair = ed25519_dalek::Keypair::generate(&mut csprng);
         let msg = b"example message";
         let sig = keypair.sign(msg);
-        match keypair.public.verify_strict(msg, &sig) {
-            Ok(()) => {}
-            Err(e) => panic!("signature didn't work using keys from Csprng: {}", e),
-        }
+        keypair.public.verify_strict(msg, &sig).unwrap();
 
         // Use all of the methods of the cspring.
         let mut counter = std::collections::HashMap::new();

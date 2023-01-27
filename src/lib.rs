@@ -200,13 +200,10 @@ pub fn random256() -> [u8; 32] {
     // from the entropy pool. To protect against race conditions we have a usage counter which
     // increments on every access. Concurrent threads that read the same state will read different
     // values for the usage counter and therefore can generate independent entropy.
-    let mut entropy_pool: [u8; 32];
-    let mut backup_pool: [u8; 32];
-    let usage_counter: u128;
     let mut es_lock = ENTROPY_STATE.lock().unwrap();
-    entropy_pool = es_lock.entropy_pool;
-    backup_pool = es_lock.backup_pool;
-    usage_counter = es_lock.usage_counter;
+    let mut entropy_pool = es_lock.entropy_pool;
+    let mut backup_pool = es_lock.backup_pool;
+    let usage_counter = es_lock.usage_counter;
     es_lock.usage_counter += 1;
     drop(es_lock);
     let usage_bytes: [u8; 16] = usage_counter.to_le_bytes();
@@ -308,7 +305,7 @@ pub fn random256() -> [u8; 32] {
     // Return the output that was generated previously. The entropy pool has already been updated
     // since generating the output which protects the current output even if the entropy pool is
     // compromised in the future.
-    return output;
+    output
 }
 
 /// range64 returns an unbiased secure random u64 within [start, end).

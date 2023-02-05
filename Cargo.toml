@@ -1,6 +1,6 @@
 [package]
 name = "userspace-rng"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 description = "provides secure randomness with entropy generated in userspace"
 license = "MIT"

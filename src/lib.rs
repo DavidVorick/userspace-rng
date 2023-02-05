@@ -358,7 +358,7 @@ impl rand_core::RngCore for Csprng {
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         let dlen = dest.len();
         let mut i = 0;
-        while i + 32 < dlen {
+        while i + 32 <= dlen {
             let rand = random256();
             dest[i..i + 32].copy_from_slice(&rand);
             i += 32;
@@ -458,12 +458,32 @@ mod tests {
 
     #[test]
     fn check_prng_impl() {
-        // Basic test: see that we can use our csprng to create an ed25519 key.
+        // Try fill_bytes with arrays of different sizes and make sure they all get filled.
         let mut csprng = Csprng {};
+        for i in 1..100 {
+            let mut bytes = vec![0u8; i];
+            csprng.fill_bytes(&mut bytes);
+            let base = bytes.clone();
+            let mut different = false;
+            for _ in 0..32 {
+                csprng.fill_bytes(&mut bytes);
+                if bytes != base {
+                    different = true;
+                }
+            }
+            assert!(different);
+        }
+
+        // Basic test: see that we can use our csprng to create an ed25519 key.
         let keypair = ed25519_dalek::Keypair::generate(&mut csprng);
         let msg = b"example message";
         let sig = keypair.sign(msg);
         keypair.public.verify_strict(msg, &sig).unwrap();
+
+        // Secondary test: ensure two keys made with the Csprng are not identical.
+        let mut csprng = Csprng {};
+        let keypair2 = ed25519_dalek::Keypair::generate(&mut csprng);
+        assert!(keypair.to_bytes() != keypair2.to_bytes());
 
         // Use all of the methods of the cspring.
         let mut counter = std::collections::HashMap::new();

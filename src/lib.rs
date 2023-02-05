@@ -404,10 +404,10 @@ mod tests {
         }
 
         // Review the number of appearances of each byte value and look for statistical anomalies.
-        for i in 0..255 {
+        for i in 0..=255 {
             let num = frequencies.get(&i).unwrap();
-            assert!(num > &(tries * 32 * 80 / 255 / 100));
-            assert!(num < &(tries * 32 * 112 / 255 / 100));
+            assert!(num > &(tries * 32 * 80 / 256 / 100));
+            assert!(num < &(tries * 32 * 112 / 256 / 100));
         }
     }
 
@@ -437,20 +437,20 @@ mod tests {
         }
         for i in 1..256 {
             let num = frequencies.get(&i).unwrap();
-            if *num < tries / 255 * 80 / 100 {
+            if *num < tries / 256 * 80 / 100 {
                 panic!(
                     "value {} appeared fewer times than expected: {} :: {}",
                     i,
                     num,
-                    tries / 255 * 80 / 100
+                    tries / 256 * 80 / 100
                 );
             }
-            if *num > tries / 255 * 125 / 100 {
+            if *num > tries / 256 * 125 / 100 {
                 panic!(
                     "value {} appeared greater times than expected: {} :: {}",
                     i,
                     num,
-                    tries / 255 * 125 / 100
+                    tries / 256 * 125 / 100
                 );
             }
         }
@@ -460,6 +460,8 @@ mod tests {
     fn check_prng_impl() {
         // Try fill_bytes with arrays of different sizes and make sure they all get filled.
         let mut csprng = Csprng {};
+        let mut counter = std::collections::HashMap::new();
+        let mut total_bytes = 0;
         for i in 1..100 {
             let mut bytes = vec![0u8; i];
             csprng.fill_bytes(&mut bytes);
@@ -470,9 +472,24 @@ mod tests {
                 if bytes != base {
                     different = true;
                 }
+                for i in 0..bytes.len() {
+                    let b = bytes[i];
+                    match counter.get(&b) {
+                        None => counter.insert(b, 1),
+                        Some(v) => counter.insert(b, v+1),
+                    };
+                    total_bytes += 1;
+                }
             }
             assert!(different);
         }
+        assert!(counter.len() == 256);
+        for i in 0..=255 {
+            let v = *counter.get(&i).unwrap();
+            assert!((v as f64) > total_bytes as f64 * 0.7 / 256.0);
+            assert!((v as f64) < total_bytes as f64 * 1.3 / 256.0);
+        }
+
 
         // Basic test: see that we can use our csprng to create an ed25519 key.
         let keypair = ed25519_dalek::Keypair::generate(&mut csprng);
@@ -515,6 +532,42 @@ mod tests {
             let mut bytes = [0u8; 8008];
             csprng.try_fill_bytes(&mut bytes).unwrap();
             for i in 0..1001 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
+            let mut bytes = [0u8; 32];
+            csprng.fill_bytes(&mut bytes);
+            for i in 0..1 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
+            let mut bytes = [0u8; 64];
+            csprng.try_fill_bytes(&mut bytes).unwrap();
+            for i in 0..2 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
+            let mut bytes = [0u8; 128];
+            csprng.fill_bytes(&mut bytes);
+            for i in 0..1 {
+                let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
+                match counter.get(&t) {
+                    None => counter.insert(t, 1),
+                    Some(v) => counter.insert(t, v + 1),
+                };
+            }
+            let mut bytes = [0u8; 56];
+            csprng.try_fill_bytes(&mut bytes).unwrap();
+            for i in 0..2 {
                 let t = u64::from_le_bytes(bytes[i * 8..(i + 1) * 8].try_into().unwrap());
                 match counter.get(&t) {
                     None => counter.insert(t, 1),
